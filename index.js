@@ -537,8 +537,282 @@ module.exports = function exl_block_plugin(md, options) {
     }
   }
 
+
+
+  /**
+   *
+   * Proeess markdown that looks like this:
+   *
+    >[!BEGINTABS]
+    >[!TAB iOS]
+    This content appears in the iOS tab.
+    >[!TAB Android]
+    This content appears in the Android tab.
+    >[!TAB Windows]
+    This content appears in the Windows tab.
+    >[!TAB MacOS]
+    This content appears in the MacOS tab.
+    >[!TAB Linux]
+    This content appears in the Linux tab.
+    >[!ENDTABS]
+  *
+  * into a token stream that renders like this:
+  *
+   <div class="sp-wrapper">
+      <sp-tabs
+        selected="1"
+        size="l"
+        direction="horizontal"
+        dir="ltr"
+        focusable=""
+      >
+        <sp-tab
+          label="iOS"
+          value="1"
+          dir="ltr"
+          role="tab"
+          id="sp-tab-0"
+          aria-selected="true"
+          tabindex="0"
+          aria-controls="sp-tab-panel-0"
+          selected=""
+        ></sp-tab>
+        <sp-tab
+          label="Android"
+          value="2"
+          dir="ltr"
+          role="tab"
+          id="sp-tab-1"
+          aria-selected="false"
+          tabindex="-1"
+          aria-controls="sp-tab-panel-1"
+        ></sp-tab>
+        <sp-tab
+          label="Windows"
+          value="3"
+          dir="ltr"
+          role="tab"
+          id="sp-tab-2"
+          aria-selected="false"
+          tabindex="-1"
+          aria-controls="sp-tab-panel-2"
+        ></sp-tab>
+        <sp-tab
+          label="MacOS"
+          value="4"
+          dir="ltr"
+          role="tab"
+          id="sp-tab-3"
+          aria-selected="false"
+          tabindex="-1"
+          aria-controls="sp-tab-panel-3"
+        ></sp-tab>
+        <sp-tab
+          label="Linux"
+          value="5"
+          dir="ltr"
+          role="tab"
+          id="sp-tab-4"
+          aria-selected="false"
+          tabindex="-1"
+          aria-controls="sp-tab-panel-4"
+        ></sp-tab>
+        <sp-tab-panel
+          value="1"
+          dir="ltr"
+          slot="tab-panel"
+          role="tabpanel"
+          tabindex="0"
+          id="sp-tab-panel-0"
+          aria-labelledby="sp-tab-0"
+          selected=""
+        >
+          <div style="display: block !important">
+            <p>This content appears in the iOS tab.</p>
+          </div>
+        </sp-tab-panel>
+        <sp-tab-panel
+          value="2"
+          dir="ltr"
+          slot="tab-panel"
+          role="tabpanel"
+          tabindex="-1"
+          id="sp-tab-panel-1"
+          aria-labelledby="sp-tab-1"
+          aria-hidden="true"
+        >
+          <div style="display: block !important">
+            <p>This content appears in the Android tab.</p>
+          </div>
+        </sp-tab-panel>
+        <sp-tab-panel
+          value="3"
+          dir="ltr"
+          slot="tab-panel"
+          role="tabpanel"
+          tabindex="-1"
+          id="sp-tab-panel-2"
+          aria-labelledby="sp-tab-2"
+          aria-hidden="true"
+        >
+          <div style="display: block !important">
+            <p>This content appears in the Windows tab.</p>
+          </div>
+        </sp-tab-panel>
+        <sp-tab-panel
+          value="4"
+          dir="ltr"
+          slot="tab-panel"
+          role="tabpanel"
+          tabindex="-1"
+          id="sp-tab-panel-3"
+          aria-labelledby="sp-tab-3"
+          aria-hidden="true"
+        >
+          <div style="display: block !important">
+            <p>This content appears in the MacOS tab.</p>
+          </div>
+        </sp-tab-panel>
+        <sp-tab-panel
+          value="5"
+          dir="ltr"
+          slot="tab-panel"
+          role="tabpanel"
+          tabindex="-1"
+          id="sp-tab-panel-4"
+          aria-labelledby="sp-tab-4"
+          aria-hidden="true"
+        >
+          <div style="display: block !important">
+            <p>This content appears in the Linux tab.</p>
+          </div>
+        </sp-tab-panel>
+      </sp-tabs>
+    </div>
+  */
+  function transformTabs(state) {
+    let tokens = state.tokens;
+    let tabRe = /\[!BEGINTABS\]/;
+    for (let i = 0; i < tokens.length; i++) {
+      let token = tokens[i];
+      if (token.type !== 'blockquote_open') {
+        continue;
+      } else {
+        // We are in a Blockquote. The next token should be a paragraph.
+        let nextToken = tokens[i + 1];
+        if (nextToken.type !== 'paragraph_open') {
+          continue;
+        }
+        // The next token should be an inline token.
+        let nextNextToken = tokens[i + 2];
+        if (nextNextToken.type === 'inline') {
+          let text = nextNextToken.content;
+          // Find the opening line.
+          let match = tabRe.exec(text);
+          if (match) {
+            // Replace the blockquote_open with a <div class="sp-wrapper"> opening.
+            token.content = '<div class="sp-wrapper">';
+            token.type = 'html_block';
+          }
+        }
+      }
+      // Find the next blockquote_open that has a paragraph_open and an inline token with a [!TAB ...] line, or
+      // an [!ENDTABS] line.
+      let tabTitleRe = /\[!TAB\s+(.*)\]/;
+      let endTabsRe = /\[!ENDTABS\]/;
+      let tabTitle = '';
+      let tabTitles = [];
+      let tabCount = 0;
+      // let tabId = '';
+      // let tabIdPrefix = 'sp-tab-';
+
+      while (i < tokens.length) {
+        let nextToken = tokens[i];
+        // Sklp over any tokens that are not blockquote_open
+        if (nextToken.type !== 'blockquote_open') {
+          i++;
+          continue;
+        }
+        // The next token better be a paragraph_open.
+        let paraToken = tokens[i + 1];
+        if (paraToken.type !== 'paragraph_open') {
+          i++;
+          continue;
+        }
+        // The next token better be an inline token.
+        let inlineToken = tokens[i + 2];
+        if (inlineToken.type !== 'inline') {
+          i++;
+          continue;
+        }
+        // We have a blockquote_open, paragraph_open, and inline token.  Look for a [!TAB ...] line or an [!ENDTABS]
+        // line.
+        let text = inlineToken.content;
+        let match = tabTitleRe.exec(text);
+        if (match) {
+          // We have a [!TAB ...] line.  Save the tab title and the tab content.
+          tabTitle = match[1];
+          tabTitles.push(tabTitle);
+          // tabId = tabIdPrefix + tabCount;
+          tabCount++;
+          // Remove the [!TAB ...] line.
+          tokens.splice(i + 2, 1);
+          // Remove the paragraph_open and paragraph_close tokens.
+          tokens.splice(i + 1, 2);
+          // Replace the blockquote_close with a <sp-tab-panel> opening.
+          let spTabPanelStart =
+            `<sp-tab-panel 
+    value="${tabCount}"
+    dir="ltr" 
+    slot="tab-panel" 
+    role="tabpanel" 
+    tabindex="-1" 
+    id="sp-tab-panel-${tabCount - 1}"
+    aria-labelledby="sp-tab-${tabCount - 1}" 
+    aria-hidden="true">`;
+          tokens[i + 1] = {
+            type: 'html_block',
+            content: spTabPanelStart,
+            level: 0,
+          }
+          i++;
+          // 
+          // Everything up to the next blockquote_open is the tab content.  Leave it alone.
+          // Find the next blockquote_open.
+          while (i < tokens.length) {
+            let nextToken = tokens[i];
+            if (nextToken.type === 'blockquote_open') {
+              // Replace the blockquote_open with a </sp-tab-panel> closing.
+              nextToken.type = 'html_block';
+              nextToken.content = '</sp-tab-panel>';
+              break;
+            }
+            i++;
+          }
+
+        } else {
+          // We don't have a [!TAB ...] line.  Look for an [!ENDTABS] line.
+          match = endTabsRe.exec(text);
+          if (match) {
+            // We have the [!ENDTABS] line.  Replace it with the closing </div> tag.
+            inlineToken.content = '</div>';
+            inlineToken.type = 'html_block';
+            // Remove the paragraph_open and paragraph_close tokens.
+            tokens.splice(i + 1, 2);
+            // Remove the blockquote_open token.
+            tokens.splice(i, 1);
+            break;
+          }
+
+        }
+        i++;
+      }
+    }
+  }
+
   // Install the rule processors
   md.core.ruler.before('normalize', 'include', includeFileParts);
+  md.core.ruler.after('block', 'tabs', transformTabs);
   md.core.ruler.after('block', 'shadebox', transformShadebox);
   md.core.ruler.after('block', 'dnl', transformDNL);
   md.core.ruler.after('block', 'uicontrol', transformUICONTROL);
