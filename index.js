@@ -710,9 +710,9 @@ module.exports = function exl_block_plugin(md, options) {
           // Find the opening line.
           let match = tabRe.exec(text);
           if (match) {
-            // Replace the blockquote_open with a <div class="sp-wrapper"> opening.
-            token.content = '<div class="sp-wrapper">';
-            token.type = 'html_block';
+            // Replace all of the totkens that make up the opening [!BEGINTABS] line with a single html_block token.
+            tokens.splice(i, 5, { type: 'html_block', content: '<div class="sp-wrapper">' });
+            i++;
           }
         }
       }
@@ -723,8 +723,6 @@ module.exports = function exl_block_plugin(md, options) {
       let tabTitle = '';
       let tabTitles = [];
       let tabCount = 0;
-      // let tabId = '';
-      // let tabIdPrefix = 'sp-tab-';
 
       while (i < tokens.length) {
         let nextToken = tokens[i];
@@ -755,11 +753,6 @@ module.exports = function exl_block_plugin(md, options) {
           tabTitles.push(tabTitle);
           // tabId = tabIdPrefix + tabCount;
           tabCount++;
-          // Remove the [!TAB ...] line.
-          tokens.splice(i + 2, 1);
-          // Remove the paragraph_open and paragraph_close tokens.
-          tokens.splice(i + 1, 2);
-          // Replace the blockquote_close with a <sp-tab-panel> opening.
           let spTabPanelStart =
             `<sp-tab-panel 
     value="${tabCount}"
@@ -770,13 +763,12 @@ module.exports = function exl_block_plugin(md, options) {
     id="sp-tab-panel-${tabCount - 1}"
     aria-labelledby="sp-tab-${tabCount - 1}" 
     aria-hidden="true">`;
-          tokens[i + 1] = {
+          tokens.splice(i, 5, {
             type: 'html_block',
             content: spTabPanelStart,
-            level: 0,
-          }
+            level: 0
+          })
           i++;
-          // 
           // Everything up to the next blockquote_open is the tab content.  Leave it alone.
           // Find the next blockquote_open.
           while (i < tokens.length) {
@@ -810,15 +802,18 @@ module.exports = function exl_block_plugin(md, options) {
     }
   }
 
-  // Install the rule processors
+  // Install the rule processors.  Note that the order of the rule processors is important, and if you add rule.after,
+  // it pushes the rule processors down the list. All of the ruler.after calls are called in reverse order.
   md.core.ruler.before('normalize', 'include', includeFileParts);
-  md.core.ruler.after('block', 'tabs', transformTabs);
   md.core.ruler.after('block', 'shadebox', transformShadebox);
+  md.core.ruler.after('block', 'collapsible', transformCollapsible);
+  md.core.ruler.after('block', 'table-styles', ignoreTableStyles);
+  md.core.ruler.after('block', 'tabs', transformTabs);
   md.core.ruler.after('block', 'dnl', transformDNL);
   md.core.ruler.after('block', 'uicontrol', transformUICONTROL);
   md.core.ruler.after('block', 'alert', transformAlerts);
   md.core.ruler.after('block', 'heading-anchors', transformHeaderAnchors);
   md.core.ruler.after('block', 'link-target', transformLinkTargets);
-  md.core.ruler.after('block', 'table-styles', ignoreTableStyles);
-  md.core.ruler.after('block', 'collapsible', transformCollapsible);
+
+
 };
