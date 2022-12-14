@@ -484,7 +484,7 @@ module.exports = function exl_block_plugin(md, options) {
 
   function transformShadebox(state) {
     let tokens = state.tokens;
-    let shadeboxRe = /\[!BEGINSHADEBOX\s+\"(.*)\"\]/;
+    let shadeboxRe = /\[!BEGINSHADEBOX(\s+\"(.*)\")?\]/;
     let endShadeboxRe = /\[!ENDSHADEBOX\]/;
     for (let i = 0; i < tokens.length; i++) {
       let token = tokens[i];
@@ -503,7 +503,7 @@ module.exports = function exl_block_plugin(md, options) {
         // Find the opening line.
         let match = shadeboxRe.exec(text);
         if (match) {
-          let shadeboxTitleText = match[1];
+          let shadeboxTitleText = match[2] || '';
           // Replace the blockquote_open with a <div class="sp-wrapper"> opening.
           token.content = '<div class="sp-wrapper">';
           token.type = 'html_block';
@@ -767,16 +767,16 @@ module.exports = function exl_block_plugin(md, options) {
             type: 'html_block',
             content: spTabPanelStart,
             level: 0
-          })
+          });
           i++;
           // Everything up to the next blockquote_open is the tab content.  Leave it alone.
           // Find the next blockquote_open.
           while (i < tokens.length) {
-            let nextToken = tokens[i];
-            if (nextToken.type === 'blockquote_open') {
+            let nxtToken = tokens[i];
+            if (nxtToken.type === 'blockquote_open') {
               // Replace the blockquote_open with a </sp-tab-panel> closing.
-              nextToken.type = 'html_block';
-              nextToken.content = '</sp-tab-panel>';
+              nxtToken.type = 'html_block';
+              nxtToken.content = '</sp-tab-panel>';
               break;
             }
             i++;
