@@ -532,12 +532,10 @@ module.exports = function exl_block_plugin(md, options) {
             }
             i++;
           }
-        }  // end if
+        } // end if
       } // end for
     }
   }
-
-
 
   /**
    *
@@ -693,6 +691,7 @@ module.exports = function exl_block_plugin(md, options) {
   function transformTabs(state) {
     let tokens = state.tokens;
     let tabRe = /\[!BEGINTABS\]/;
+    let tabsGoHere = 0;
     for (let i = 0; i < tokens.length; i++) {
       let token = tokens[i];
       if (token.type !== 'blockquote_open') {
@@ -711,8 +710,18 @@ module.exports = function exl_block_plugin(md, options) {
           let match = tabRe.exec(text);
           if (match) {
             // Replace all of the totkens that make up the opening [!BEGINTABS] line with a single html_block token.
-            tokens.splice(i, 5, { type: 'html_block', content: '<div class="sp-wrapper">' });
+            tokens.splice(i, 5, {
+              type: 'html_block',
+              content: `<div class="sp-wrapper"><sp-tabs
+                  selected="1"
+                  size="l"
+                  direction="horizontal"
+                  dir="ltr"
+                  focusable=""
+                >`,
+            });
             i++;
+            tabsGoHere = i;
           }
         }
       }
@@ -753,8 +762,7 @@ module.exports = function exl_block_plugin(md, options) {
           tabTitles.push(tabTitle);
           // tabId = tabIdPrefix + tabCount;
           tabCount++;
-          let spTabPanelStart =
-            `<sp-tab-panel 
+          let spTabPanelStart = `<sp-tab-panel 
     value="${tabCount}"
     dir="ltr" 
     slot="tab-panel" 
@@ -766,36 +774,55 @@ module.exports = function exl_block_plugin(md, options) {
           tokens.splice(i, 5, {
             type: 'html_block',
             content: spTabPanelStart,
-            level: 0
-          })
+            level: 0,
+          });
           i++;
           // Everything up to the next blockquote_open is the tab content.  Leave it alone.
           // Find the next blockquote_open.
           while (i < tokens.length) {
             let nextToken = tokens[i];
             if (nextToken.type === 'blockquote_open') {
-              // Replace the blockquote_open with a </sp-tab-panel> closing.
-              nextToken.type = 'html_block';
-              nextToken.content = '</sp-tab-panel>';
+              // Insert the </sp-tab-panel> closing.
+              let spTabPanelEnd = `</sp-tab-panel>`;
+              tokens.splice(i, 0, {
+                type: 'html_block',
+                content: spTabPanelEnd,
+                level: 0,
+              });
               break;
             }
             i++;
           }
-
         } else {
           // We don't have a [!TAB ...] line.  Look for an [!ENDTABS] line.
           match = endTabsRe.exec(text);
           if (match) {
             // We have the [!ENDTABS] line.  Replace it with the closing </div> tag.
-            inlineToken.content = '</div>';
+            inlineToken.content = '</sp-tabs></div>';
             inlineToken.type = 'html_block';
             // Remove the paragraph_open and paragraph_close tokens.
             tokens.splice(i + 1, 2);
             // Remove the blockquote_open token.
             tokens.splice(i, 1);
+            const tabHeaders = tabTitles.map((tabTitle, index) => {
+              return {
+                type: 'html_block',
+                content: `<sp-tab
+                label="${tabTitle}"
+                value="${index + 1}"
+                dir="ltr"
+                role="tab"
+                id="sp-tab-${index + 1}"
+                aria-selected="true"
+                tabindex="-1"
+                aria-controls="sp-tab-panel-${index + 1}"
+                selected=""
+              ></sp-tab>`,
+              };
+            });
+            tokens.splice(tabsGoHere, 0, ...tabHeaders);
             break;
           }
-
         }
         i++;
       }
@@ -814,6 +841,4 @@ module.exports = function exl_block_plugin(md, options) {
   md.core.ruler.after('block', 'alert', transformAlerts);
   md.core.ruler.after('block', 'heading-anchors', transformHeaderAnchors);
   md.core.ruler.after('block', 'link-target', transformLinkTargets);
-
-
 };
