@@ -484,7 +484,7 @@ module.exports = function exl_block_plugin(md, options) {
 
   function transformShadebox(state) {
     let tokens = state.tokens;
-    let shadeboxRe = /\[!BEGINSHADEBOX(\s+\"(.*)\")?\]/;
+    let shadeboxRe = /\[!BEGINSHADEBOX\s*(\"(.*)\")?\]/;
     let endShadeboxRe = /\[!ENDSHADEBOX\]/;
     for (let i = 0; i < tokens.length; i++) {
       let token = tokens[i];
