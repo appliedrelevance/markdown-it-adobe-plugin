@@ -537,157 +537,31 @@ module.exports = function exl_block_plugin(md, options) {
     }
   }
 
-  /**
-   *
-   * Proeess markdown that looks like this:
-   *
-    >[!BEGINTABS]
-    >[!TAB iOS]
-    This content appears in the iOS tab.
-    >[!TAB Android]
-    This content appears in the Android tab.
-    >[!TAB Windows]
-    This content appears in the Windows tab.
-    >[!TAB MacOS]
-    This content appears in the MacOS tab.
-    >[!TAB Linux]
-    This content appears in the Linux tab.
-    >[!ENDTABS]
-  *
-  * into a token stream that renders like this:
-  *
-   <div class="sp-wrapper">
-      <sp-tabs
-        selected="1"
-        size="l"
-        direction="horizontal"
-        dir="ltr"
-        focusable=""
-      >
-        <sp-tab
-          label="iOS"
-          value="1"
-          dir="ltr"
-          role="tab"
-          id="sp-tab-0"
-          aria-selected="true"
-          tabindex="0"
-          aria-controls="sp-tab-panel-0"
-          selected=""
-        ></sp-tab>
-        <sp-tab
-          label="Android"
-          value="2"
-          dir="ltr"
-          role="tab"
-          id="sp-tab-1"
-          aria-selected="false"
-          tabindex="-1"
-          aria-controls="sp-tab-panel-1"
-        ></sp-tab>
-        <sp-tab
-          label="Windows"
-          value="3"
-          dir="ltr"
-          role="tab"
-          id="sp-tab-2"
-          aria-selected="false"
-          tabindex="-1"
-          aria-controls="sp-tab-panel-2"
-        ></sp-tab>
-        <sp-tab
-          label="MacOS"
-          value="4"
-          dir="ltr"
-          role="tab"
-          id="sp-tab-3"
-          aria-selected="false"
-          tabindex="-1"
-          aria-controls="sp-tab-panel-3"
-        ></sp-tab>
-        <sp-tab
-          label="Linux"
-          value="5"
-          dir="ltr"
-          role="tab"
-          id="sp-tab-4"
-          aria-selected="false"
-          tabindex="-1"
-          aria-controls="sp-tab-panel-4"
-        ></sp-tab>
-        <sp-tab-panel
-          value="1"
-          dir="ltr"
-          slot="tab-panel"
-          role="tabpanel"
-          tabindex="0"
-          id="sp-tab-panel-0"
-          aria-labelledby="sp-tab-0"
-          selected=""
-        >
-          <div style="display: block !important">
-            <p>This content appears in the iOS tab.</p>
-          </div>
-        </sp-tab-panel>
-        <sp-tab-panel
-          value="2"
-          dir="ltr"
-          slot="tab-panel"
-          role="tabpanel"
-          tabindex="-1"
-          id="sp-tab-panel-1"
-          aria-labelledby="sp-tab-1"
-          aria-hidden="true"
-        >
-          <div style="display: block !important">
-            <p>This content appears in the Android tab.</p>
-          </div>
-        </sp-tab-panel>
-        <sp-tab-panel
-          value="3"
-          dir="ltr"
-          slot="tab-panel"
-          role="tabpanel"
-          tabindex="-1"
-          id="sp-tab-panel-2"
-          aria-labelledby="sp-tab-2"
-          aria-hidden="true"
-        >
-          <div style="display: block !important">
-            <p>This content appears in the Windows tab.</p>
-          </div>
-        </sp-tab-panel>
-        <sp-tab-panel
-          value="4"
-          dir="ltr"
-          slot="tab-panel"
-          role="tabpanel"
-          tabindex="-1"
-          id="sp-tab-panel-3"
-          aria-labelledby="sp-tab-3"
-          aria-hidden="true"
-        >
-          <div style="display: block !important">
-            <p>This content appears in the MacOS tab.</p>
-          </div>
-        </sp-tab-panel>
-        <sp-tab-panel
-          value="5"
-          dir="ltr"
-          slot="tab-panel"
-          role="tabpanel"
-          tabindex="-1"
-          id="sp-tab-panel-4"
-          aria-labelledby="sp-tab-4"
-          aria-hidden="true"
-        >
-          <div style="display: block !important">
-            <p>This content appears in the Linux tab.</p>
-          </div>
-        </sp-tab-panel>
-      </sp-tabs>
-    </div>
-  */
+  // Append script tags to include the Adobe Spectrum web component classes.
+  function appendSpectrumTabs(state) {
+    let tokens = state.tokens;
+    let scriptTag = `<script
+          src="@spectrum-web-components/tab/sp-tabs.js"
+          type="module" 
+          async>
+       </script>
+       <script
+          src="https://jspm.dev/@spectrum-web-components/tab/sp-tab.js"
+          type="module" 
+          async>
+       </script>
+       <script
+          src="https://jspm.dev/@spectrum-web-components/tab/sp-tab-panel.js"
+          type="module" 
+          async>
+       </script>`;    // insert the script tag as an HTML block token at the end of the document.
+    tokens.push({
+      type: 'html_block',
+      content: scriptTag,
+      level: 0,
+    });
+  }
+
   function transformTabs(state) {
     let tokens = state.tokens;
     let tabRe = /\[!BEGINTABS\]/;
@@ -780,10 +654,10 @@ module.exports = function exl_block_plugin(md, options) {
           // Everything up to the next blockquote_open is the tab content.  Leave it alone.
           // Find the next blockquote_open.
           while (i < tokens.length) {
-            let nextToken = tokens[i];
+            nextToken = tokens[i];
             if (nextToken.type === 'blockquote_open') {
               // Insert the </sp-tab-panel> closing.
-              let spTabPanelEnd = `</sp-tab-panel>`;
+              let spTabPanelEnd = '</sp-tab-panel>';
               tokens.splice(i, 0, {
                 type: 'html_block',
                 content: spTabPanelEnd,
@@ -804,11 +678,11 @@ module.exports = function exl_block_plugin(md, options) {
             tokens.splice(i + 1, 2);
             // Remove the blockquote_open token.
             tokens.splice(i, 1);
-            const tabHeaders = tabTitles.map((tabTitle, index) => {
+            const tabHeaders = tabTitles.map((tabLab, index) => {
               return {
                 type: 'html_block',
                 content: `<sp-tab
-                label="${tabTitle}"
+                label="${tabLab}"
                 value="${index + 1}"
                 dir="ltr"
                 role="tab"
@@ -826,8 +700,10 @@ module.exports = function exl_block_plugin(md, options) {
         }
         i++;
       }
+      // appendSpectrumTabs(state);
     }
   }
+
 
   // Install the rule processors.  Note that the order of the rule processors is important, and if you add rule.after,
   // it pushes the rule processors down the list. All of the ruler.after calls are called in reverse order.
